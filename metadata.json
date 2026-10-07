@@ -1,0 +1,6 @@
+{
+  "name": "Coffeë - Premium Café & Patisserie",
+  "description": "Artisanal coffee, handcrafted pastries, and sweet moments inspired by editorial luxury café aesthetics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
