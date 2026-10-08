@@ -6,6 +6,7 @@ import { SpecialCards } from './components/SpecialCards.tsx';
 import { SpecialCoffee } from './components/SpecialCoffee.tsx';
 import { MenuCatalog } from './components/MenuCatalog.tsx';
 import { AboutSection } from './components/AboutSection.tsx';
+import { ReviewsSection } from './components/ReviewsSection.tsx';
 import { ServiceFeaturesBar } from './components/ServiceFeaturesBar.tsx';
 import { Footer } from './components/Footer.tsx';
 import { ProductModal } from './components/ProductModal.tsx';
@@ -14,12 +15,25 @@ import { CheckoutModal } from './components/CheckoutModal.tsx';
 import { SearchModal } from './components/SearchModal.tsx';
 import { AdminModal } from './components/AdminModal.tsx';
 import { ContactModal } from './components/ContactModal.tsx';
-import { Product, CartItem, Order } from './types/index.ts';
-import { INITIAL_PRODUCTS } from '../server/seedData.ts';
+import { Product, CartItem, Order, Review } from './types/index.ts';
+import { INITIAL_PRODUCTS } from './data/products.ts';
+import { apiClient } from './lib/api.ts';
+
+const CART_STORAGE_KEY = 'coffee_patron_cart_v1';
 
 export default function App() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS as Product[]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(CART_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -30,23 +44,31 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [discount, setDiscount] = useState(0);
 
-  // Load products from backend REST API
-  const fetchProducts = async () => {
+  // Sync cart to localStorage whenever it changes
+  useEffect(() => {
     try {
-      const res = await fetch('/api/products');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          setProducts(data);
-        }
-      }
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     } catch (e) {
-      console.warn('API fetch products fallback to initial data', e);
+      console.warn('Could not save cart state', e);
+    }
+  }, [cart]);
+
+  // Load products and reviews
+  const loadInitialData = async () => {
+    try {
+      const [prods, revs] = await Promise.all([
+        apiClient.getProducts(),
+        apiClient.getReviews(),
+      ]);
+      if (prods && prods.length > 0) setProducts(prods);
+      if (revs && revs.length > 0) setReviews(revs);
+    } catch (e) {
+      console.warn('Initial data load warning', e);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
+    loadInitialData();
   }, []);
 
   // Cart operations
@@ -81,13 +103,25 @@ export default function App() {
     setCart((prev) => prev.filter((item) => item.product._id !== productId));
   };
 
+  const handleClearCart = () => {
+    setCart([]);
+    setDiscount(0);
+  };
+
   const handleApplyPromo = (code: string) => {
-    if (code.toUpperCase() === 'SWEET10' || code.toUpperCase() === 'COFFEE10') {
+    const formatted = code.toUpperCase().trim();
+    if (formatted === 'SWEET10' || formatted === 'COFFEE10') {
       const subtotal = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
       setDiscount(subtotal * 0.1);
       return true;
     }
     return false;
+  };
+
+  // Add a new review
+  const handleAddReview = async (newReviewData: Omit<Review, '_id' | 'date'>) => {
+    const created = await apiClient.submitReview(newReviewData);
+    setReviews((prev) => [created, ...prev]);
   };
 
   // Navigation click routing
@@ -165,7 +199,7 @@ export default function App() {
           specialProduct={muilSpecial}
         />
 
-        {/* 6. Curated Menu Catalog (Cosset & Confect browser with category tabs) */}
+        {/* 6. Curated Menu Catalog (Expanded 110-product catalog across 5 categories) */}
         <MenuCatalog
           products={products}
           onSelectProduct={(p) => setSelectedProduct(p)}
@@ -177,11 +211,17 @@ export default function App() {
         {/* 7. Abouts / Philosophy Section */}
         <AboutSection />
 
-        {/* 8. Dark Green Service Feature Bar (Free Delivery, Secure Payment, Premium Quality, 24/7 Support) */}
+        {/* 8. Patron Dispatches & Reviews Section */}
+        <ReviewsSection
+          reviews={reviews}
+          onAddReview={handleAddReview}
+        />
+
+        {/* 9. Dark Green Service Feature Bar (Free Delivery, Secure Payment, Premium Quality, 24/7 Support) */}
         <ServiceFeaturesBar />
       </main>
 
-      {/* 9. Main Footer (Copyright, We Accept payment cards, Follow Us socials) */}
+      {/* 10. Main Footer (Copyright, We Accept payment cards, Real Social links, Newsletter) */}
       <Footer
         onOpenContact={() => setIsContactOpen(true)}
         onSelectSection={handleSelectSection}
@@ -190,7 +230,9 @@ export default function App() {
       {/* Modals & Drawers */}
       <ProductModal
         product={selectedProduct}
+        allProducts={products}
         onClose={() => setSelectedProduct(null)}
+        onSelectProduct={(p) => setSelectedProduct(p)}
         onAddToCart={(p, qty, notes) => handleAddToCart(p, qty, notes)}
       />
 
@@ -200,6 +242,7 @@ export default function App() {
         items={cart}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveFromCart}
+        onClearCart={handleClearCart}
         onProceedToCheckout={() => {
           setIsCartOpen(false);
           setIsCheckoutOpen(true);
@@ -217,8 +260,7 @@ export default function App() {
         discount={discount}
         total={cartTotal}
         onOrderSuccess={(_order: Order) => {
-          setCart([]);
-          setDiscount(0);
+          handleClearCart();
         }}
       />
 
@@ -232,7 +274,7 @@ export default function App() {
       <AdminModal
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
-        onRefreshProducts={fetchProducts}
+        onRefreshProducts={loadInitialData}
       />
 
       <ContactModal

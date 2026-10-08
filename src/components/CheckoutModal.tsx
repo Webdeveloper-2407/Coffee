@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, ShieldCheck, CreditCard, Banknote, Coffee, Truck } from 'lucide-react';
 import { CartItem, Order } from '../types/index.ts';
+import { apiClient } from '../lib/api.ts';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -42,8 +43,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.address) {
-      setErrorMessage('Please fill in all mandatory customer fields.');
+    if (!formData.name.trim() || !formData.email.trim() || !formData.address.trim()) {
+      setErrorMessage('Please fill in your recipient name, email address, and delivery address.');
+      return;
+    }
+
+    if (!items || items.length === 0) {
+      setErrorMessage('Your bag is currently empty. Please add items before checking out.');
       return;
     }
 
@@ -53,13 +59,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       const orderPayload = {
         customer: {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          postalCode: formData.postalCode,
-          specialInstructions: formData.specialInstructions,
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          address: formData.address.trim(),
+          city: formData.city.trim(),
+          postalCode: formData.postalCode?.trim(),
+          specialInstructions: formData.specialInstructions?.trim(),
         },
         items: items.map((i) => ({
           productId: i.product._id,
@@ -75,17 +81,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         paymentMethod: formData.paymentMethod,
       };
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
-      });
-
-      if (!res.ok) {
-        throw new Error('Order creation failed on server');
-      }
-
-      const createdOrder = await res.json();
+      const createdOrder = await apiClient.createOrder(orderPayload);
       setConfirmedOrder(createdOrder);
       onOrderSuccess(createdOrder);
     } catch (err: any) {
@@ -238,7 +234,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   type="text"
                   value={formData.specialInstructions}
                   onChange={(e) => setFormData({ ...formData, specialInstructions: e.target.value })}
-                  placeholder="e.g. Leave on bench outside front door"
+                  placeholder="e.g. Ring buzzer #3A. Fragile pastry box handling appreciated."
                   className="w-full text-xs px-3.5 py-2.5 bg-white border border-[#D5C6B6] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#163325]"
                 />
               </div>
@@ -296,7 +292,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-6 rounded-full bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] text-xs font-semibold tracking-wider transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 px-6 rounded-full bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] text-xs font-semibold tracking-wider transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
               >
                 {loading ? (
                   <span>Transmitting order to barista counter...</span>

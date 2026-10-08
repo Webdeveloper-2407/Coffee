@@ -7,15 +7,13 @@ import {
   Users,
   Plus,
   Trash2,
-  Edit2,
-  Check,
-  TrendingUp,
-  Clock,
   RefreshCw,
-  Eye,
   SlidersHorizontal,
+  Star,
+  CheckCircle2,
 } from 'lucide-react';
-import { Product, Order, ContactMessage, NewsletterSubscriber } from '../types/index.ts';
+import { Product, Order, ContactMessage, NewsletterSubscriber, Review } from '../types/index.ts';
+import { apiClient } from '../lib/api.ts';
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -28,11 +26,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onClose,
   onRefreshProducts,
 }) => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'messages' | 'newsletter'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'messages' | 'newsletter' | 'reviews'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [subscribers, setSubscribers] = useState<NewsletterSubscriber[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,8 +42,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     subtitle: '',
     description: '',
     price: 7.5,
-    category: 'cosset',
-    image: '/src/assets/images/cake_pistachio_aatis_1791337225871.jpg',
+    category: 'cosset' as 'cosset' | 'confect' | 'special' | 'coffee' | 'cold-brew',
+    image: '/images/aatis-pistachio.jpg',
     tagline: 'Freshly baked artisanal treat',
     available: true,
   });
@@ -52,19 +51,21 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [ordRes, prodRes, msgRes, newsRes, statRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/products'),
-        fetch('/api/contact'),
-        fetch('/api/newsletter'),
-        fetch('/api/admin/stats'),
+      const [ordList, prodList, msgList, subList, revList, statData] = await Promise.all([
+        apiClient.getOrders(),
+        apiClient.getProducts(),
+        apiClient.getContactMessages(),
+        apiClient.getNewsletterSubscribers(),
+        apiClient.getReviews(),
+        apiClient.getStats(),
       ]);
 
-      if (ordRes.ok) setOrders(await ordRes.json());
-      if (prodRes.ok) setProducts(await prodRes.json());
-      if (msgRes.ok) setMessages(await msgRes.json());
-      if (newsRes.ok) setSubscribers(await newsRes.json());
-      if (statRes.ok) setStats(await statRes.json());
+      setOrders(ordList);
+      setProducts(prodList);
+      setMessages(msgList);
+      setSubscribers(subList);
+      setReviews(revList);
+      setStats(statData);
     } catch (err) {
       console.error('Failed to load admin telemetry', err);
     } finally {
@@ -82,16 +83,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        setOrders((prev) =>
-          prev.map((o) => (o._id === orderId ? { ...o, status: newStatus as any } : o))
-        );
-      }
+      await apiClient.updateOrderStatus(orderId, newStatus);
+      setOrders((prev) =>
+        prev.map((o) => (o._id === orderId ? { ...o, status: newStatus as any } : o))
+      );
     } catch (e) {
       console.error('Failed to update status', e);
     }
@@ -99,18 +94,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleToggleProductAvailability = async (product: Product) => {
     try {
-      const updated = { ...product, available: !product.available };
-      const res = await fetch(`/api/products/${product._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      });
-      if (res.ok) {
-        setProducts((prev) =>
-          prev.map((p) => (p._id === product._id ? { ...p, available: !p.available } : p))
-        );
-        onRefreshProducts();
-      }
+      const updated = await apiClient.toggleProductStock(product);
+      setProducts((prev) =>
+        prev.map((p) => (p._id === product._id ? updated : p))
+      );
+      onRefreshProducts();
     } catch (e) {
       console.error('Failed to toggle product', e);
     }
@@ -119,11 +107,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleDeleteProduct = async (productId: string) => {
     if (!confirm('Are you sure you want to delete this menu item?')) return;
     try {
-      const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p._id !== productId));
-        onRefreshProducts();
-      }
+      await apiClient.deleteProduct(productId);
+      setProducts((prev) => prev.filter((p) => p._id !== productId));
+      onRefreshProducts();
     } catch (e) {
       console.error('Delete failed', e);
     }
@@ -132,27 +118,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProd),
+      const created = await apiClient.createProduct(newProd);
+      setProducts([created, ...products]);
+      setShowAddProduct(false);
+      setNewProd({
+        name: '',
+        subtitle: '',
+        description: '',
+        price: 7.5,
+        category: 'cosset',
+        image: '/images/aatis-pistachio.jpg',
+        tagline: 'Freshly baked artisanal treat',
+        available: true,
       });
-      if (res.ok) {
-        const created = await res.json();
-        setProducts([created, ...products]);
-        setShowAddProduct(false);
-        setNewProd({
-          name: '',
-          subtitle: '',
-          description: '',
-          price: 7.5,
-          category: 'cosset',
-          image: '/src/assets/images/cake_pistachio_aatis_1791337225871.jpg',
-          tagline: 'Freshly baked artisanal treat',
-          available: true,
-        });
-        onRefreshProducts();
-      }
+      onRefreshProducts();
     } catch (e) {
       console.error('Create product error', e);
     }
@@ -219,12 +198,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 Catalog Items
               </span>
               <span className="font-mono text-2xl font-bold text-[#163325] mt-1 block">
-                {stats.activeProducts} <span className="text-xs text-[#7B8A80] font-normal">in stock</span>
+                {stats.activeProducts} <span className="text-xs text-[#7B8A80] font-normal">active</span>
               </span>
             </div>
             <div className="p-4 rounded-2xl bg-white border border-[#E5DACD]">
               <span className="text-[11px] font-semibold text-[#809186] uppercase tracking-wider block">
-                Subscribers
+                Gazette Members
               </span>
               <span className="font-mono text-2xl font-bold text-[#163325] mt-1 block">
                 {stats.newslettersCount}
@@ -234,12 +213,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-[#E3D6C5] px-6 bg-[#F5ECE0]/60">
+        <div className="flex border-b border-[#E3D6C5] px-6 bg-[#F5ECE0]/60 overflow-x-auto">
           {[
             { id: 'orders', label: 'Customer Orders', icon: ShoppingBag, count: orders.length },
             { id: 'products', label: 'Menu Inventory', icon: Package, count: products.length },
             { id: 'messages', label: 'Inquiries', icon: Mail, count: messages.length },
-            { id: 'newsletter', label: 'Gazette Subscribers', icon: Users, count: subscribers.length },
+            { id: 'newsletter', label: 'Subscribers', icon: Users, count: subscribers.length },
+            { id: 'reviews', label: 'Patron Reviews', icon: Star, count: reviews.length },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -247,7 +227,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`py-3.5 px-4 text-xs font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+                className={`py-3.5 px-4 text-xs font-semibold tracking-wide flex items-center gap-2 border-b-2 transition-all cursor-pointer shrink-0 ${
                   isActive
                     ? 'border-[#163325] text-[#163325]'
                     : 'border-transparent text-[#6F7E75] hover:text-[#163325]'
@@ -274,7 +254,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
 
               {orders.length === 0 ? (
-                <p className="text-center py-12 text-sm text-[#7F8F85]">No orders received yet.</p>
+                <div className="text-center py-12 text-sm text-[#7F8F85]">
+                  No orders in system yet. Place an order on the storefront to test live tracking!
+                </div>
               ) : (
                 <div className="space-y-3">
                   {orders.map((ord) => (
@@ -342,13 +324,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           {activeTab === 'products' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h4 className="font-serif text-lg text-[#163325]">Café Offerings Catalog</h4>
+                <h4 className="font-serif text-lg text-[#163325]">
+                  Café Offerings Catalog ({products.length} Items)
+                </h4>
                 <button
                   onClick={() => setShowAddProduct(!showAddProduct)}
                   className="px-4 py-2 bg-[#163325] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-[#254A37]"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{showAddProduct ? 'Cancel New Item' : 'Add New Item'}</span>
+                  <span>{showAddProduct ? 'Cancel' : 'Add New Item'}</span>
                 </button>
               </div>
 
@@ -409,7 +393,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       </label>
                       <select
                         value={newProd.category}
-                        onChange={(e) => setNewProd({ ...newProd, category: e.target.value })}
+                        onChange={(e) => setNewProd({ ...newProd, category: e.target.value as any })}
                         className="w-full text-xs px-3 py-2 bg-white border border-[#D5C6B6] rounded-xl"
                       >
                         <option value="cosset">Cosset (Cakes & Mousse)</option>
@@ -466,13 +450,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#EFE7DC]">
-                    {products.map((p) => (
+                    {products.slice(0, 50).map((p) => (
                       <tr key={p._id} className="hover:bg-[#FDFBF7]">
                         <td className="p-3 flex items-center gap-3">
                           <img
                             src={p.image}
                             alt={p.name}
                             className="w-9 h-9 rounded-lg object-cover bg-[#EAE0D3]"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/images/hero-coffee.jpg';
+                            }}
                           />
                           <div>
                             <p className="font-semibold text-[#163325]">{p.name}</p>
@@ -581,6 +568,35 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Reviews Tab */}
+          {activeTab === 'reviews' && (
+            <div className="space-y-4">
+              <h4 className="font-serif text-lg text-[#163325]">Patron Dispatches ({reviews.length})</h4>
+              <div className="space-y-3">
+                {reviews.map((r) => (
+                  <div key={r._id} className="bg-white rounded-2xl p-4 border border-[#E5DACD] space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-[#163325]">{r.author}</strong>
+                        <span className="text-[#78887E]">({r.role || 'Patron'})</span>
+                        <div className="flex text-[#BA8657] ml-2">
+                          {[...Array(r.rating)].map((_, i) => (
+                            <Star key={i} className="w-3 h-3 fill-current" />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-[#8E9F94]">{r.date}</span>
+                    </div>
+                    <p className="text-[#55645A] italic">"{r.comment}"</p>
+                    {r.itemOrdered && (
+                      <span className="text-[10px] font-mono text-[#BA8657] block">Tasted: {r.itemOrdered}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

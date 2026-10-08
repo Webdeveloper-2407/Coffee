@@ -14,6 +14,7 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json());
+app.use('/images', express.static(path.resolve(__dirname, 'public/images')));
 
 // Initialize DB connection (attempts MongoDB if URI provided, else logs memory fallback)
 connectDB().catch((err) => {
@@ -27,7 +28,8 @@ app.get('/api/products', async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string | undefined;
     const featured = req.query.featured !== undefined ? req.query.featured === 'true' : undefined;
-    const products = await store.getProducts({ category, featured });
+    const search = req.query.search as string | undefined;
+    const products = await store.getProducts({ category, featured, search });
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve products' });
@@ -186,7 +188,31 @@ app.get('/api/newsletter', async (_req: Request, res: Response) => {
   }
 });
 
-// 5. Admin Stats & Auth API
+// 5. Reviews API
+app.get('/api/reviews', async (_req: Request, res: Response) => {
+  try {
+    const reviews = await store.getReviews();
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve reviews' });
+  }
+});
+
+app.post('/api/reviews', async (req: Request, res: Response) => {
+  try {
+    const { author, rating, comment } = req.body;
+    if (!author || !rating || !comment) {
+      res.status(400).json({ error: 'Author, rating, and review comment are required' });
+      return;
+    }
+    const review = await store.createReview(req.body);
+    res.status(201).json(review);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create review' });
+  }
+});
+
+// 6. Admin Stats & Auth API
 app.get('/api/admin/stats', async (_req: Request, res: Response) => {
   try {
     const stats = await store.getDashboardStats();

@@ -13,6 +13,8 @@ export interface IProduct extends Document {
   cardBgColor?: string;
   buttonBgColor?: string;
   rating?: number;
+  reviewCount?: number;
+  tags?: string[];
   calories?: string;
   allergens?: string[];
   ingredients?: string[];
@@ -33,6 +35,8 @@ const ProductSchema: Schema = new Schema(
     cardBgColor: { type: String },
     buttonBgColor: { type: String },
     rating: { type: Number, default: 4.9 },
+    reviewCount: { type: Number, default: 42 },
+    tags: [{ type: String }],
     calories: { type: String },
     allergens: [{ type: String }],
     ingredients: [{ type: String }],

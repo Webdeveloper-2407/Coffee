@@ -11,11 +11,25 @@ export interface Product {
   available: boolean;
   cardBgColor?: string;
   buttonBgColor?: string;
-  rating?: number;
+  rating: number;
+  reviewCount: number;
+  tags: string[];
   calories?: string;
   allergens?: string[];
   ingredients?: string[];
   createdAt?: string;
+}
+
+export interface Review {
+  _id: string;
+  author: string;
+  role?: string;
+  avatar?: string;
+  rating: number;
+  date: string;
+  comment: string;
+  itemOrdered?: string;
+  verified: boolean;
 }
 
 export interface CartItem {

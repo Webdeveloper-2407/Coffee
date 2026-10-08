@@ -1,6 +1,7 @@
 import React from 'react';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Product } from '../types/index.ts';
+import { IMAGES } from '../assets/images/index.ts';
 
 interface SpecialCardsProps {
   products: Product[];
@@ -27,6 +28,7 @@ export const SpecialCards: React.FC<SpecialCardsProps> = ({
       bgClass: 'bg-[#DEE8DC]',
       btnBg: 'bg-[#1F3C2C] hover:bg-[#2A4F3A]',
       subtitleColor: 'text-[#44604E]',
+      fallbackImage: IMAGES.cakePistachio,
     },
     {
       product: card2,
@@ -36,6 +38,7 @@ export const SpecialCards: React.FC<SpecialCardsProps> = ({
       bgClass: 'bg-[#F5ECE3]',
       btnBg: 'bg-[#B67E48] hover:bg-[#CA8D54]',
       subtitleColor: 'text-[#96663A]',
+      fallbackImage: IMAGES.cakeChocolate,
     },
     {
       product: card3,
@@ -45,6 +48,7 @@ export const SpecialCards: React.FC<SpecialCardsProps> = ({
       bgClass: 'bg-[#FCE9E7]',
       btnBg: 'bg-[#BD4957] hover:bg-[#D45564]',
       subtitleColor: 'text-[#A0424F]',
+      fallbackImage: IMAGES.cakeBerry,
     },
   ];
 
@@ -79,10 +83,15 @@ export const SpecialCards: React.FC<SpecialCardsProps> = ({
               >
                 <div className="w-full aspect-square max-w-[240px] relative flex items-center justify-center">
                   <img
-                    src={prod.image}
+                    src={card.fallbackImage || prod.image}
                     alt={`${prod.name} - ${prod.subtitle}`}
                     className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-108 transition-transform duration-500 ease-out"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      if (card.fallbackImage) {
+                        (e.target as HTMLImageElement).src = card.fallbackImage;
+                      }
+                    }}
                   />
                 </div>
               </div>

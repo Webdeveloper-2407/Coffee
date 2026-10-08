@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Sparkles, Tag } from 'lucide-react';
+import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight, Sparkles, Tag, RotateCcw } from 'lucide-react';
 import { CartItem } from '../types/index.ts';
 
 interface CartDrawerProps {
@@ -8,6 +8,7 @@ interface CartDrawerProps {
   items: CartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
+  onClearCart?: () => void;
   onProceedToCheckout: () => void;
   discount: number;
   onApplyPromo: (code: string) => boolean;
@@ -19,6 +20,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   items,
   onUpdateQuantity,
   onRemoveItem,
+  onClearCart,
   onProceedToCheckout,
   discount,
   onApplyPromo,
@@ -63,13 +65,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 {items.reduce((acc, i) => acc + i.quantity, 0)}
               </span>
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Close cart"
-              className="w-8 h-8 rounded-full hover:bg-[#EBE2D4] text-[#163325] flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {items.length > 0 && onClearCart && (
+                <button
+                  onClick={onClearCart}
+                  title="Empty Cart"
+                  className="text-[11px] text-[#86978C] hover:text-rose-700 p-1 flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Clear</span>
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                aria-label="Close cart"
+                className="w-8 h-8 rounded-full hover:bg-[#EBE2D4] text-[#163325] flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Free Shipping Progress Indicator */}
@@ -124,6 +139,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       alt={item.product.name}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/images/hero-coffee.jpg';
+                      }}
                     />
                   </div>
 
@@ -151,6 +169,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <div className="flex items-center space-x-1.5 bg-[#FAF6F0] border border-[#D8CABE] rounded-full p-0.5">
                         <button
                           onClick={() => onUpdateQuantity(item.product._id, item.quantity - 1)}
+                          aria-label={`Decrease quantity of ${item.product.name}`}
                           className="w-5 h-5 rounded-full hover:bg-[#EBE1D4] flex items-center justify-center text-[#163325] cursor-pointer"
                         >
                           <Minus className="w-2.5 h-2.5" />
@@ -160,6 +179,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </span>
                         <button
                           onClick={() => onUpdateQuantity(item.product._id, item.quantity + 1)}
+                          aria-label={`Increase quantity of ${item.product.name}`}
                           className="w-5 h-5 rounded-full hover:bg-[#EBE1D4] flex items-center justify-center text-[#163325] cursor-pointer"
                         >
                           <Plus className="w-2.5 h-2.5" />
@@ -220,7 +240,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-emerald-800 font-medium">
-                    <span>Discount</span>
+                    <span>Discount (SWEET10)</span>
                     <span className="font-mono">-${discount.toFixed(2)}</span>
                   </div>
                 )}

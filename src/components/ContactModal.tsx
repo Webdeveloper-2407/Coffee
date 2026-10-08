@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, CheckCircle2, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { apiClient } from '../lib/api.ts';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
       setStatus('error');
       setFeedback('Please provide your name, email, and message.');
       return;
@@ -28,23 +29,18 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
 
     try {
       setStatus('loading');
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const msg = await apiClient.submitContact({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject?.trim(),
+        message: formData.message.trim(),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setStatus('success');
-        setFeedback(data.message || 'Thank you! Your message has been received.');
-        setFormData({ name: '', email: '', subject: '', message: '' });
-      } else {
-        setStatus('error');
-        setFeedback(data.error || 'Failed to submit inquiry.');
-      }
-    } catch {
+      setStatus('success');
+      setFeedback(msg);
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (err: any) {
       setStatus('error');
-      setFeedback('Network error. Please try again.');
+      setFeedback(err.message || 'Error sending message. Please try again.');
     }
   };
 
@@ -53,6 +49,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
       <div className="relative w-full max-w-2xl bg-[#F8F4EC] rounded-3xl shadow-2xl border border-[#E3D6C5] overflow-hidden my-8">
         <button
           onClick={onClose}
+          aria-label="Close contact dialog"
           className="absolute top-5 right-5 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-[#163325] flex items-center justify-center transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
@@ -99,11 +96,11 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
 
             {status === 'success' ? (
               <div className="py-8 text-center space-y-3">
-                <CheckCircle2 className="w-12 h-12 text-emerald-700 mx-auto" />
+                <CheckCircle2 className="w-12 h-12 text-emerald-800 mx-auto" />
                 <p className="font-serif text-lg text-[#163325]">{feedback}</p>
                 <button
                   onClick={() => setStatus('idle')}
-                  className="mt-3 px-5 py-2 bg-[#163325] text-white rounded-full text-xs font-semibold"
+                  className="mt-3 px-5 py-2 bg-[#163325] text-white rounded-full text-xs font-semibold cursor-pointer"
                 >
                   Send Another Message
                 </button>
@@ -111,12 +108,12 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
             ) : (
               <form onSubmit={handleSubmit} className="space-y-3.5">
                 {feedback && status === 'error' && (
-                  <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-lg">{feedback}</p>
+                  <p className="text-xs text-rose-800 bg-rose-50 p-2.5 rounded-lg border border-rose-200">{feedback}</p>
                 )}
 
                 <div>
                   <label className="text-[11px] font-semibold text-[#163325] uppercase tracking-wider block mb-1">
-                    Your Name
+                    Your Name *
                   </label>
                   <input
                     type="text"
@@ -129,7 +126,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
 
                 <div>
                   <label className="text-[11px] font-semibold text-[#163325] uppercase tracking-wider block mb-1">
-                    Email
+                    Email *
                   </label>
                   <input
                     type="email"
@@ -155,7 +152,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
 
                 <div>
                   <label className="text-[11px] font-semibold text-[#163325] uppercase tracking-wider block mb-1">
-                    Message
+                    Message *
                   </label>
                   <textarea
                     rows={3}
@@ -170,7 +167,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
                 <button
                   type="submit"
                   disabled={status === 'loading'}
-                  className="w-full py-3 bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] rounded-full text-xs font-semibold tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
+                  className="w-full py-3 bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] rounded-full text-xs font-semibold tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors disabled:opacity-70"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{status === 'loading' ? 'Sending...' : 'TRANSMIT MESSAGE'}</span>

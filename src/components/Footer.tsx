@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Instagram, Facebook, Twitter, Pin, Send, Check } from 'lucide-react';
+import { apiClient } from '../lib/api.ts';
 
 interface FooterProps {
   onOpenContact: () => void;
@@ -13,31 +14,23 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes('@')) {
+    const trimmed = email.trim();
+
+    if (!trimmed || !trimmed.includes('@') || !trimmed.includes('.')) {
       setStatus('error');
-      setMessage('Please enter a valid email address.');
+      setMessage("We couldn't complete your subscription. Please enter a valid email address.");
       return;
     }
 
     try {
       setStatus('loading');
-      const res = await fetch('/api/newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStatus('success');
-        setMessage(data.message || 'Subscribed successfully!');
-        setEmail('');
-      } else {
-        setStatus('error');
-        setMessage(data.error || 'Failed to subscribe');
-      }
+      const res = await apiClient.subscribeNewsletter(trimmed);
+      setStatus('success');
+      setMessage(res.message || 'Thanks for subscribing to the Coffeë Gazette.');
+      setEmail('');
     } catch {
       setStatus('error');
-      setMessage('Network error. Please try again.');
+      setMessage("We couldn't complete your subscription. Please try again.");
     }
   };
 
@@ -62,13 +55,15 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
+                aria-label="Email address for newsletter"
                 className="flex-1 bg-[#FAF6F0] border border-[#D8CABE] px-4 py-2.5 rounded-full text-xs md:text-sm text-[#163325] placeholder:text-[#9EA8A1] focus:outline-none focus:ring-1 focus:ring-[#163325]"
                 disabled={status === 'loading'}
               />
               <button
                 type="submit"
                 disabled={status === 'loading'}
-                className="bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] px-6 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-colors shrink-0 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                aria-label="Subscribe to newsletter"
+                className="bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC] px-6 py-2.5 rounded-full text-xs font-semibold tracking-wider transition-colors shrink-0 flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-70"
               >
                 {status === 'loading' ? (
                   <span>Subscribing...</span>
@@ -87,8 +82,9 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
             </form>
             {message && (
               <p
+                role="alert"
                 className={`text-xs mt-2 text-right ${
-                  status === 'success' ? 'text-emerald-700' : 'text-rose-700'
+                  status === 'success' ? 'text-emerald-800 font-medium' : 'text-rose-800'
                 }`}
               >
                 {message}
@@ -97,14 +93,14 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
           </div>
         </div>
 
-        {/* Bottom Essential Row (Exact layout from the reference image) */}
+        {/* Bottom Essential Row (Matching reference image) */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-[#5C6B62]">
           {/* Left: Menu symbol + Copyright */}
           <div className="flex items-center space-x-4">
             <button
               onClick={() => onSelectSection('abouts')}
               className="p-1 hover:text-[#163325] transition-colors cursor-pointer"
-              aria-label="Navigation drawer"
+              aria-label="View about our atelier"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -121,10 +117,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </button>
-            <span>© 2024 Coffeë. All rights reserved.</span>
+            <span>© 2026 Coffeë. All rights reserved.</span>
             <button
               onClick={onOpenContact}
-              className="text-[#BA8657] hover:underline font-medium ml-2"
+              className="text-[#BA8657] hover:underline font-medium ml-2 cursor-pointer"
             >
               Contact Atelier
             </button>
@@ -139,7 +135,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
                 VISA
               </span>
               {/* Mastercard Symbol */}
-              <div className="flex items-center border border-[#D5C7B7] px-1.5 py-0.5 rounded bg-white shadow-2xs">
+              <div className="flex items-center border border-[#D5C7B7] px-1.5 py-0.5 rounded bg-white shadow-2xs" title="Mastercard">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600 inline-block -mr-1 opacity-90" />
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block opacity-90" />
               </div>
@@ -154,35 +150,43 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact, onSelectSection }
             </div>
           </div>
 
-          {/* Right: "Follow Us" with Social Icons */}
+          {/* Right: "Follow Us" with Real Working Social Links */}
           <div className="flex items-center space-x-3">
             <span className="text-[#78887E] font-medium">Follow Us</span>
             <div className="flex items-center space-x-2.5 text-[#37453C]">
               <a
-                href="#instagram"
-                aria-label="Instagram"
-                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors"
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Coffeë on Instagram"
+                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors shadow-2xs"
               >
                 <Instagram className="w-3.5 h-3.5" />
               </a>
               <a
-                href="#facebook"
-                aria-label="Facebook"
-                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors"
+                href="https://facebook.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Coffeë on Facebook"
+                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors shadow-2xs"
               >
                 <Facebook className="w-3.5 h-3.5" />
               </a>
               <a
-                href="#twitter"
-                aria-label="Twitter / X"
-                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors"
+                href="https://x.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Coffeë on Twitter / X"
+                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors shadow-2xs"
               >
                 <Twitter className="w-3.5 h-3.5" />
               </a>
               <a
-                href="#pinterest"
-                aria-label="Pinterest"
-                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors"
+                href="https://pinterest.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Visit Coffeë on Pinterest"
+                className="w-7 h-7 rounded-full bg-[#EFE6DC] hover:bg-[#163325] hover:text-[#F8F4EC] flex items-center justify-center transition-colors shadow-2xs"
               >
                 <Pin className="w-3.5 h-3.5" />
               </a>

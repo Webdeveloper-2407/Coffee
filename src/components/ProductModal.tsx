@@ -4,13 +4,17 @@ import { Product } from '../types/index.ts';
 
 interface ProductModalProps {
   product: Product | null;
+  allProducts: Product[];
   onClose: () => void;
+  onSelectProduct: (product: Product) => void;
   onAddToCart: (product: Product, quantity: number, notes?: string) => void;
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({
   product,
+  allProducts,
   onClose,
+  onSelectProduct,
   onAddToCart,
 }) => {
   const [quantity, setQuantity] = useState(1);
@@ -18,6 +22,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [addedNotice, setAddedNotice] = useState(false);
 
   if (!product) return null;
+
+  // Find related products in the same category
+  const relatedProducts = allProducts
+    .filter((p) => p.category === product.category && p._id !== product._id)
+    .slice(0, 3);
 
   const handleAdd = () => {
     onAddToCart(product, quantity, notes);
@@ -31,7 +40,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-2xl bg-[#F8F4EC] rounded-3xl shadow-2xl overflow-hidden border border-[#E8DFD3] max-h-[90vh] flex flex-col md:flex-row"
+        className="relative w-full max-w-3xl bg-[#F8F4EC] rounded-3xl shadow-2xl overflow-hidden border border-[#E8DFD3] max-h-[92vh] flex flex-col md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -44,13 +53,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         </button>
 
         {/* Left Column: Product Image */}
-        <div className="md:w-1/2 bg-[#F1E8DC] p-6 flex items-center justify-center relative overflow-hidden">
+        <div className="md:w-5/12 bg-[#F1E8DC] p-6 flex flex-col items-center justify-center relative overflow-hidden">
           <div className="w-full aspect-square max-w-[280px] relative flex items-center justify-center">
             <img
               src={product.image}
               alt={product.name}
               className="w-full h-full object-contain filter drop-shadow-lg"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/images/hero-coffee.jpg';
+              }}
             />
           </div>
           {product.category && (
@@ -58,11 +70,18 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {product.category}
             </span>
           )}
+
+          {/* Rating in image view */}
+          <div className="mt-4 flex items-center gap-1.5 bg-[#FAF6F0] px-3 py-1 rounded-full border border-[#DFD2C2] text-xs">
+            <Star className="w-3.5 h-3.5 fill-[#BA8657] text-[#BA8657]" />
+            <span className="font-bold text-[#163325]">{product.rating?.toFixed(1) || '4.9'}</span>
+            <span className="text-[#78897E]">({product.reviewCount || 42} reviews)</span>
+          </div>
         </div>
 
         {/* Right Column: Details & Actions */}
-        <div className="md:w-1/2 p-6 md:p-8 flex flex-col justify-between overflow-y-auto max-h-[500px] md:max-h-none space-y-5">
-          <div className="space-y-3">
+        <div className="md:w-7/12 p-6 md:p-8 flex flex-col justify-between overflow-y-auto max-h-[550px] md:max-h-none space-y-5">
+          <div className="space-y-3.5">
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="font-serif text-3xl font-medium text-[#163325]">
@@ -83,7 +102,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
             {/* Ingredients or Allergens */}
             {product.ingredients && product.ingredients.length > 0 && (
-              <div className="pt-2">
+              <div className="pt-1">
                 <h5 className="text-[11px] font-semibold text-[#163325] uppercase tracking-wider mb-1">
                   Key Ingredients:
                 </h5>
@@ -113,6 +132,37 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 className="w-full text-xs px-3 py-2 bg-white/80 border border-[#D9CABE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#163325]"
               />
             </div>
+
+            {/* Related Products Section */}
+            {relatedProducts.length > 0 && (
+              <div className="pt-3 border-t border-[#E8DFD3]">
+                <h5 className="text-[11px] font-semibold text-[#163325] uppercase tracking-wider mb-2">
+                  Pairs Beautifully With:
+                </h5>
+                <div className="grid grid-cols-3 gap-2">
+                  {relatedProducts.map((rel) => (
+                    <div
+                      key={rel._id}
+                      onClick={() => onSelectProduct(rel)}
+                      className="p-2 rounded-xl bg-white border border-[#E2D5C3] hover:border-[#BA8657] cursor-pointer transition-colors text-center"
+                    >
+                      <div className="w-10 h-10 mx-auto rounded-lg overflow-hidden mb-1">
+                        <img
+                          src={rel.image}
+                          alt={rel.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/hero-coffee.jpg';
+                          }}
+                        />
+                      </div>
+                      <p className="text-[10px] font-serif font-bold text-[#163325] truncate">{rel.name}</p>
+                      <p className="text-[10px] font-mono text-[#BA8657]">${rel.price.toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Row */}
@@ -122,6 +172,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               <div className="flex items-center space-x-2 bg-white border border-[#D6C7B7] rounded-full p-1">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  aria-label="Decrease quantity"
                   className="w-7 h-7 rounded-full hover:bg-[#F2EAE0] flex items-center justify-center text-[#163325] transition-colors cursor-pointer"
                 >
                   <Minus className="w-3 h-3" />
@@ -131,6 +182,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
+                  aria-label="Increase quantity"
                   className="w-7 h-7 rounded-full hover:bg-[#F2EAE0] flex items-center justify-center text-[#163325] transition-colors cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
@@ -140,11 +192,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
             <button
               onClick={handleAdd}
-              disabled={addedNotice}
+              disabled={addedNotice || !product.available}
               className={`w-full py-3.5 px-6 rounded-full text-xs font-semibold tracking-wider flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer ${
                 addedNotice
                   ? 'bg-emerald-800 text-white'
-                  : 'bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC]'
+                  : product.available
+                  ? 'bg-[#163325] hover:bg-[#254A37] text-[#F8F4EC]'
+                  : 'bg-stone-300 text-stone-500 cursor-not-allowed'
               }`}
             >
               {addedNotice ? (
